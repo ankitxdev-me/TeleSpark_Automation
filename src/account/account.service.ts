@@ -67,8 +67,30 @@ export class AccountService {
     });
   }
 
+  private normalizePhone(phone: string): string {
+    if (!phone) return '';
+    const digitsOnly = phone.replace(/[^\d+]/g, '');
+    return digitsOnly.startsWith('+') ? digitsOnly : `+${digitsOnly}`;
+  }
+
   async sendCode(tenantId: string, dto: SendCodeDto): Promise<any> {
-    const cleanPhone = dto.phone.trim();
+    const cleanPhone = this.normalizePhone(dto.phone);
+
+    // 0. Check if account already exists and is already ACTIVE in this tenant
+    const existing = await this.prisma.account.findUnique({
+      where: {
+        tenantId_phone: {
+          tenantId,
+          phone: cleanPhone,
+        },
+      },
+    });
+
+    if (existing && existing.status === AccountStatus.ACTIVE) {
+      throw new BadRequestException(
+        `Telegram account ${cleanPhone} (@${existing.username || 'user'}) is already registered and ACTIVE!`,
+      );
+    }
 
     // 1. Concurrent In-Flight Request Lock
     if (this.activeCodeRequests.has(cleanPhone)) {
@@ -122,7 +144,8 @@ export class AccountService {
   }
 
   async verifyCode(tenantId: string, dto: VerifyCodeDto): Promise<any> {
-    const cached = this.tempSessions.get(dto.phone);
+    const cleanPhone = this.normalizePhone(dto.phone);
+    const cached = this.tempSessions.get(cleanPhone);
     if (!cached || cached.expiresAt < Date.now()) {
       throw new BadRequestException('Verification session expired. Please request a new code.');
     }
@@ -136,7 +159,7 @@ export class AccountService {
     }
 
     const result = await this.executeAuthAction('verify_code', {
-      phone: dto.phone,
+      phone: cleanPhone,
       code: dto.code,
       phoneCodeHash,
       password: dto.password,
@@ -148,7 +171,7 @@ export class AccountService {
     if (!result.success) {
       if (result.requires2FA) {
         if (result.tempSession) {
-          this.tempSessions.set(dto.phone, {
+          this.tempSessions.set(cleanPhone, {
             tempSession: result.tempSession,
             expiresAt: Date.now() + 10 * 60 * 1000,
           });
@@ -167,7 +190,7 @@ export class AccountService {
       where: {
         tenantId_phone: {
           tenantId,
-          phone: dto.phone,
+          phone: cleanPhone,
         },
       },
     });
@@ -195,7 +218,7 @@ export class AccountService {
         const created = await tx.account.create({
           data: {
             tenantId,
-            phone: dto.phone,
+            phone: cleanPhone,
             username,
             sessionString: result.sessionString,
             apiId,

@@ -200,9 +200,27 @@ function switchNav(section) {
     if (nav) nav.classList.toggle('active', sec === section);
   });
 
+  closeMobileSidebar();
+
   if (section === 'accounts' && isAdmin) loadAccounts();
   if (section === 'users' && isAdmin) loadUsers();
   if (section === 'activity') loadTasks();
+}
+
+// Mobile Sidebar Controls
+function toggleMobileSidebar() {
+  const sidebar = document.getElementById('app-sidebar');
+  const backdrop = document.getElementById('sidebar-backdrop');
+  if (!sidebar) return;
+  const isOpen = sidebar.classList.toggle('open');
+  if (backdrop) backdrop.classList.toggle('active', isOpen);
+}
+
+function closeMobileSidebar() {
+  const sidebar = document.getElementById('app-sidebar');
+  const backdrop = document.getElementById('sidebar-backdrop');
+  if (sidebar) sidebar.classList.remove('open');
+  if (backdrop) backdrop.classList.remove('active');
 }
 
 // Data Refresh
@@ -278,6 +296,7 @@ async function loadAccounts() {
                   ? `<button class="btn btn-danger btn-sm" onclick="toggleAccount('${acc.id}', 'disable')">Disable</button>`
                   : `<button class="btn btn-success btn-sm" onclick="toggleAccount('${acc.id}', 'enable')">Enable</button>`
               }
+              <button class="btn btn-danger btn-sm" style="background: rgba(239, 68, 68, 0.2); border: 1px solid rgba(239, 68, 68, 0.5); color: #fca5a5;" onclick="deleteAccount('${acc.id}', '${acc.phone}')">Delete</button>
             </div>
           </td>
         </tr>
@@ -312,6 +331,21 @@ async function toggleAccount(id, action) {
     loadStats();
   } catch (err) {
     showToast(err.message, 'error');
+  }
+}
+
+async function deleteAccount(id, phone) {
+  const confirmed = confirm(`Are you sure you want to permanently delete account ${phone}? This will remove it from the database.`);
+  if (!confirmed) return;
+
+  try {
+    showToast(`Deleting account ${phone}...`, 'info');
+    const res = await apiCall(`/accounts/${id}`, 'DELETE');
+    showToast(res.message || `Account ${phone} deleted successfully`, 'success');
+    loadAccounts();
+    loadStats();
+  } catch (err) {
+    showToast(err.message || 'Failed to delete account', 'error');
   }
 }
 
@@ -1328,12 +1362,14 @@ async function resendVerificationCode() {
 }
 
 async function submitSendCode(overridePhone) {
-  if (isSendingCode) return; // Prevent double/triple click
-
+  if (isSendingCode) return;
   const phoneInput = document.getElementById('modal-phone');
-  const phone = (overridePhone || (phoneInput ? phoneInput.value : '')).trim();
-  if (!phone) {
-    showToast('Please enter a phone number', 'error');
+  let phone = (overridePhone || (phoneInput ? phoneInput.value : '')).trim();
+  phone = phone.replace(/[^\d+]/g, '');
+  if (phone && !phone.startsWith('+')) phone = '+' + phone;
+
+  if (!phone || phone.length < 7) {
+    showToast('Please enter a valid phone number with country code (e.g. +919541650687)', 'error');
     return;
   }
 
