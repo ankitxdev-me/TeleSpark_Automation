@@ -1,0 +1,51 @@
+{
+  "name": "telespark-automation-api",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "dev": "ts-node src/main.ts",
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/src/main.js",
+    "start:dev": "ts-node src/main.ts",
+    "prisma:generate": "prisma generate",
+    "prisma:migrate": "prisma migrate dev"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "@nestjs/bullmq": "^12.0.0",
+    "@nestjs/common": "^12.1.2",
+    "@nestjs/config": "^12.0.1",
+    "@nestjs/core": "^12.1.2",
+    "@nestjs/jwt": "^12.0.2",
+    "@nestjs/platform-express": "^12.1.2",
+    "@nestjs/serve-static": "^12.0.0",
+    "@nestjs/swagger": "^12.0.2",
+    "@nestjs/terminus": "^12.1.0",
+    "@prisma/client": "6.19.3",
+    "bcryptjs": "^3.0.3",
+    "bullmq": "^6.3.11",
+    "class-transformer": "^0.5.1",
+    "class-validator": "^0.15.1",
+    "dotenv": "^18.0.5",
+    "ioredis": "^6.0.0",
+    "jsonwebtoken": "^9.0.3",
+    "nest-winston": "^2.0.0",
+    "reflect-metadata": "^0.2.2",
+    "rxjs": "^7.8.2",
+    "uuid": "^14.0.2",
+    "winston": "^3.19.0"
+  },
+  "devDependencies": {
+    "@types/bcryptjs": "^2.4.6",
+    "@types/express": "^5.0.6",
+    "@types/jsonwebtoken": "^9.0.10",
+    "@types/node": "^26.6.4",
+    "@types/uuid": "^10.0.0",
+    "prisma": "6.19.3",
+    "typescript": "^5.9.3"
+  }
+}

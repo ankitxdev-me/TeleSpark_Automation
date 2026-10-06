@@ -1,0 +1,716 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TeleSpark Automation &mdash; Royal Studio</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+
+  <!-- Royal Top Navigation Bar -->
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-icon">⚡</span>
+      <span id="brand-title">TeleSpark Studio</span>
+    </div>
+    <div class="topbar-actions">
+      <div id="conn-status" class="status-badge active">● API Connected</div>
+      <div id="user-profile-pill" class="user-pill" style="display: none;">
+        <span id="user-display-name">Admin</span>
+        <span id="user-display-role" class="role-badge admin">👑 ADMIN</span>
+        <button id="btn-logout" class="btn btn-secondary btn-sm" onclick="logout()">Logout</button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Auth View (Shown when not authenticated) -->
+  <main id="auth-view" class="auth-wrapper">
+    <div class="auth-card">
+      <div class="auth-tabs">
+        <div id="tab-login" class="auth-tab active" onclick="switchAuthTab('login')">Sign In</div>
+        <div id="tab-signup" class="auth-tab" onclick="switchAuthTab('signup')">Create Account</div>
+      </div>
+
+      <!-- Login Form -->
+      <form id="form-login" onsubmit="handleLogin(event)">
+        <div class="form-group">
+          <label class="form-label">Email Address</label>
+          <input type="email" id="login-email" class="form-control" placeholder="admin@telespark.io" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Password</label>
+          <input type="password" id="login-password" class="form-control" placeholder="••••••••" required>
+        </div>
+        <button type="submit" id="btn-submit-login" class="btn btn-gold" style="width: 100%;">Sign In to Studio</button>
+      </form>
+
+      <!-- Signup Form -->
+      <form id="form-signup" onsubmit="handleSignup(event)" style="display: none;">
+        <div class="form-group">
+          <label class="form-label">Full Name</label>
+          <input type="text" id="signup-name" class="form-control" placeholder="Royal Operator">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Email Address</label>
+          <input type="email" id="signup-email" class="form-control" placeholder="user@example.com" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Password (min 6 characters)</label>
+          <input type="password" id="signup-password" class="form-control" placeholder="••••••••" minlength="6" required>
+        </div>
+        <div style="background: rgba(245, 158, 11, 0.08); padding: 0.85rem; border-radius: var(--radius-sm); margin-bottom: 1.25rem; font-size: 0.82rem; color: #fde68a; border: 1px solid rgba(245, 158, 11, 0.2);">
+          🛡️ <strong>Defensive Access Notice:</strong> New accounts are registered with <code>PENDING</code> status. An administrator must approve your account before task execution permissions are granted.
+        </div>
+        <button type="submit" id="btn-submit-signup" class="btn btn-primary" style="width: 100%;">Register Account</button>
+      </form>
+    </div>
+  </main>
+
+  <!-- Authenticated Application Container -->
+  <div id="dashboard-view" class="app-container" style="display: none;">
+    <!-- Sidebar Navigation -->
+    <aside class="sidebar">
+      <!-- Admin Navigation Block (Hidden for regular users) -->
+      <div id="sidebar-admin-block">
+        <div class="sidebar-heading">Imperial Admin Control</div>
+        <a class="nav-link active" onclick="switchNav('overview')" id="nav-overview">
+          <span>📊</span> Admin Overview
+        </a>
+      </div>
+
+      <!-- General Operations Block -->
+      <div class="sidebar-heading">Campaign Automation</div>
+      <a class="nav-link" onclick="switchNav('campaigns')" id="nav-campaigns">
+        <span>🚀</span> Send Campaigns
+      </a>
+
+      <!-- Admin Management Block (Strictly Admin Only) -->
+      <div id="sidebar-admin-management">
+        <div class="sidebar-heading">Fleet & Access</div>
+        <a class="nav-link" onclick="switchNav('accounts')" id="nav-accounts">
+          <span>📱</span> Telegram Accounts
+        </a>
+        <a class="nav-link" onclick="switchNav('users')" id="nav-users">
+          <span>👥</span> User Management
+        </a>
+      </div>
+
+      <!-- Monitoring Block -->
+      <div class="sidebar-heading">Execution Stream</div>
+      <a class="nav-link" onclick="switchNav('activity')" id="nav-activity">
+        <span>⚡</span> Live Activity Feed
+      </a>
+    </aside>
+
+    <!-- Main Content Panel Area -->
+    <main class="content-area">
+
+      <!-- ================================================================ -->
+      <!-- 0. NORMAL USER PORTAL HERO (Visible only to Regular Users)       -->
+      <!-- ================================================================ -->
+      <div id="user-portal-hero" class="user-hero-card" style="display: none;">
+        <div>
+          <div class="user-hero-title">👋 Welcome to TeleSpark Automation Studio</div>
+          <div class="user-hero-desc">
+            Launch automated comments, reactions, direct messages, and community operations across Telegram with ease.
+          </div>
+        </div>
+        <div>
+          <button class="btn btn-gold" onclick="switchNav('campaigns')">🚀 Launch New Campaign</button>
+        </div>
+      </div>
+
+      <!-- ================================================================ -->
+      <!-- 1. ADMIN OVERVIEW SECTION (Admin Only)                           -->
+      <!-- ================================================================ -->
+      <section id="sec-overview">
+        <div class="stat-grid">
+          <div class="stat-card gold-trim">
+            <span class="stat-title">Active Telegram Fleet</span>
+            <span id="stat-active-accounts" class="stat-value">0</span>
+          </div>
+          <div class="stat-card">
+            <span class="stat-title">Average Pool Health</span>
+            <span id="stat-avg-health" class="stat-value">100%</span>
+          </div>
+          <div class="stat-card">
+            <span class="stat-title">Completed Tasks</span>
+            <span id="stat-completed-tasks" class="stat-value">0</span>
+          </div>
+          <div class="stat-card gold-trim">
+            <span class="stat-title">Pending Approvals</span>
+            <span id="stat-pending-users" class="stat-value">0</span>
+          </div>
+        </div>
+
+        <div class="panel gold-glow">
+          <div class="panel-header">
+            <div class="panel-title"><span>👑</span> Imperial Fast Launch Actions</div>
+          </div>
+          <p style="color: var(--text-muted); margin-bottom: 1.5rem;">
+            Quickly trigger high-concurrency Telegram operations rotating accounts through resilient MTProto queues.
+          </p>
+          <div style="display: flex; gap: 1rem; flex-wrap: wrap;">
+            <button class="btn btn-primary" onclick="switchNav('campaigns'); selectCampaignTab('comment')">💬 Fast Comment</button>
+            <button class="btn btn-secondary" onclick="switchNav('campaigns'); selectCampaignTab('dm')">✉️ Direct Messages</button>
+            <button class="btn btn-secondary" onclick="switchNav('campaigns'); selectCampaignTab('reaction')">🔥 Rotate Reactions</button>
+            <button class="btn btn-secondary" onclick="switchNav('campaigns'); selectCampaignTab('group')">📢 Group Messages</button>
+            <button class="btn btn-secondary" onclick="switchNav('campaigns'); selectCampaignTab('join')">👥 Join/Leave</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================================================================ -->
+      <!-- 2. SEND CAMPAIGNS (Direct tabbed form for Campaigns)             -->
+      <!-- ================================================================ -->
+      <section id="sec-campaigns" style="display: none;">
+        <div class="panel gold-glow">
+          <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+            <div>
+              <div class="panel-title"><span>🚀</span> Send Telegram Campaigns</div>
+              <p style="color: var(--text-muted); font-size: 0.88rem; margin: 0.25rem 0 0 0;">
+                Configure and send bulk comments, direct messages, emoji reactions, and group broadcasts.
+              </p>
+            </div>
+          </div>
+
+          <!-- Campaign Sub-Tabs -->
+          <div style="display: flex; gap: 0.5rem; margin-bottom: 2rem; border-bottom: 1px solid var(--border-subtle); padding-bottom: 0.75rem; flex-wrap: wrap;">
+            <button id="btn-tab-comment" class="btn btn-secondary btn-sm" onclick="selectCampaignTab('comment')">💬 Comments</button>
+            <button id="btn-tab-dm" class="btn btn-secondary btn-sm" onclick="selectCampaignTab('dm')">✉️ "Message Every User" (DMs)</button>
+            <button id="btn-tab-reaction" class="btn btn-secondary btn-sm" onclick="selectCampaignTab('reaction')">🔥 Emoji Reactions</button>
+            <button id="btn-tab-group" class="btn btn-secondary btn-sm" onclick="selectCampaignTab('group')">📢 Group Messages</button>
+            <button id="btn-tab-join" class="btn btn-secondary btn-sm" onclick="selectCampaignTab('join')">👥 Join/Leave</button>
+          </div>
+
+          <!-- Form 1: Comment Campaign -->
+          <form id="form-campaign-comment" onsubmit="dispatchCommentCampaign(event)">
+            <div class="form-group">
+              <label class="form-label">Target Post URL</label>
+              <input type="text" id="comment-post-url" class="form-control" placeholder="https://t.me/ForPayoutRecords/743" required>
+            </div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+              <div class="form-group">
+                <label class="form-label">Commenting Mode</label>
+                <select id="comment-mode" class="form-control">
+                  <option value="MULTIPLE_ACCOUNTS">Multiple Accounts (Alternating: Acc 1 ➔ Acc 2 ➔ Acc 1)</option>
+                  <option value="SINGLE_ACCOUNT">Single Account (1 Account posts all comments)</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Total Comments Count</label>
+                <input type="number" id="comment-count" class="form-control" value="4" min="1" max="100" required>
+              </div>
+            </div>
+
+            <!-- Predefined Comments Management & Custom Pool -->
+            <div class="form-group" style="background: rgba(16, 24, 40, 0.6); border: 1px solid rgba(212, 175, 55, 0.25); border-radius: 8px; padding: 1rem;">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.6rem; flex-wrap: wrap; gap: 0.5rem;">
+                <div style="font-weight: 600; color: #f3f4f6; display: flex; align-items: center; gap: 0.5rem;">
+                  <span>💬 Predefined Comments Pool</span>
+                  <span id="predefined-count-badge" class="badge badge-queued" style="font-size: 0.75rem;">60 Comments</span>
+                </div>
+                <div style="display: flex; gap: 0.5rem;">
+                  <button type="button" class="btn btn-secondary btn-sm" onclick="toggleEditPredefinedComments()" id="btn-edit-predefined">✏️ Edit Predefined Comments</button>
+                  <button type="button" class="btn btn-secondary btn-sm" onclick="resetPredefinedComments()" title="Reset to original 60 comments">↺ Reset</button>
+                </div>
+              </div>
+
+              <!-- Quick View / Chips of comments -->
+              <div id="predefined-preview-box" style="font-size: 0.82rem; color: #cbd5e1; max-height: 85px; overflow-y: auto; background: rgba(0,0,0,0.3); border-radius: 6px; padding: 0.5rem; line-height: 1.5; border: 1px dashed rgba(255,255,255,0.1);">
+                <!-- Populated dynamically by app.js -->
+              </div>
+
+              <!-- Collapsible Editor for Predefined Comments -->
+              <div id="predefined-edit-container" style="display: none; margin-top: 0.75rem; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 0.75rem;">
+                <label class="form-label" style="font-size: 0.85rem; color: #fbbf24; display: flex; justify-content: space-between;">
+                  <span>Edit Predefined Pool (1 comment per line):</span>
+                  <span id="editor-line-count" style="color: #94a3b8; font-weight: normal;">60 lines</span>
+                </label>
+                <textarea id="predefined-comments-editor" class="form-control" rows="8" placeholder="Type comments here, one per line..." oninput="updateEditorLineCount()"></textarea>
+                <div style="display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 0.5rem;">
+                  <button type="button" class="btn btn-gold btn-sm" onclick="savePredefinedComments()">💾 Save Predefined Pool</button>
+                  <button type="button" class="btn btn-secondary btn-sm" onclick="toggleEditPredefinedComments()">Close</button>
+                </div>
+              </div>
+
+              <!-- Checkbox to toggle between Predefined Pool and Custom One-Off List -->
+              <div style="margin-top: 0.75rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem;">
+                <label style="cursor: pointer; color: #e2e8f0; font-size: 0.88rem; display: flex; align-items: center; gap: 0.5rem; margin: 0;">
+                  <input type="checkbox" id="comment-use-random" checked onchange="toggleCommentModeSelection()"> 
+                  <span>Use Predefined Comments for this campaign</span>
+                </label>
+                <span id="comment-pool-indicator" style="font-size: 0.8rem; color: #10b981;">✓ Randomly picks from active predefined pool</span>
+              </div>
+
+              <!-- Custom messages textarea (only shown when unchecked) -->
+              <div id="comment-custom-container" style="display: none; margin-top: 0.75rem;">
+                <label class="form-label" style="font-size: 0.85rem; color: #38bdf8;">Custom Campaign Messages (1 comment per line):</label>
+                <textarea id="comment-messages" class="form-control" rows="4" placeholder="Enter custom message lines for this campaign..."></textarea>
+              </div>
+            </div>
+
+            <!-- Smart Delay Settings for Comments -->
+            <div class="form-group" style="background: rgba(15, 23, 42, 0.5); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 8px; padding: 0.85rem; margin-top: 1rem;">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.6rem; flex-wrap: wrap; gap: 0.5rem;">
+                <label class="form-label" style="margin: 0; font-weight: 600; color: #f1f5f9; display: flex; align-items: center; gap: 0.4rem;">
+                  ⏱️ Task Execution Delay Mode
+                </label>
+                <select id="comment-delay-mode" class="form-control" style="width: auto; padding: 0.25rem 0.5rem; font-size: 0.85rem;" onchange="onDelayModeChange('comment')">
+                  <option value="random" selected>🎲 Variable / Random Range (e.g. 10s - 50s)</option>
+                  <option value="fixed">⏱️ Fixed Interval (e.g. 3s)</option>
+                  <option value="custom">📋 Custom Sequence (e.g. 10, 50, 20, 15)</option>
+                </select>
+              </div>
+
+              <!-- Mode: Fixed -->
+              <div id="comment-delay-fixed-box" style="display: none;">
+                <div style="display: flex; align-items: center; gap: 0.75rem;">
+                  <input type="number" id="comment-interval" class="form-control" value="3" min="1" max="300" style="max-width: 140px;">
+                  <span style="font-size: 0.85rem; color: #94a3b8;">seconds delay between consecutive comments</span>
+                </div>
+              </div>
+
+              <!-- Mode: Random Variable Range -->
+              <div id="comment-delay-random-box">
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
+                  <div>
+                    <label style="font-size: 0.8rem; color: #cbd5e1; margin-bottom: 0.25rem; display: block;">Min Delay (seconds):</label>
+                    <input type="number" id="comment-delay-min" class="form-control" value="10" min="1" max="3600">
+                  </div>
+                  <div>
+                    <label style="font-size: 0.8rem; color: #cbd5e1; margin-bottom: 0.25rem; display: block;">Max Delay (seconds):</label>
+                    <input type="number" id="comment-delay-max" class="form-control" value="50" min="1" max="3600">
+                  </div>
+                </div>
+                <div style="margin-top: 0.5rem; font-size: 0.82rem; color: #38bdf8; display: flex; align-items: center; gap: 0.35rem;">
+                  <span>💡</span> <span>Each task is randomly delayed between min & max (e.g. Task 1: 10s, Task 2: 50s, Task 3: 20s, Task 4: 15s...).</span>
+                </div>
+              </div>
+
+              <!-- Mode: Custom Sequence -->
+              <div id="comment-delay-custom-box" style="display: none;">
+                <label style="font-size: 0.8rem; color: #cbd5e1; margin-bottom: 0.25rem; display: block;">Custom delays sequence (comma-separated seconds):</label>
+                <input type="text" id="comment-delay-custom" class="form-control" value="10, 50, 20, 15" placeholder="e.g. 10, 50, 20, 15">
+                <div style="margin-top: 0.4rem; font-size: 0.82rem; color: #a78bfa;">
+                  Task 1 +10s ➔ Task 2 +50s ➔ Task 3 +20s ➔ Task 4 +15s (cycles if more tasks).
+                </div>
+              </div>
+            </div>
+
+            <button type="submit" class="btn btn-gold" style="margin-top: 1rem;">🚀 Dispatch Comment Campaign</button>
+          </form>
+
+          <!-- Form 2: Bulk DM Campaign -->
+          <form id="form-campaign-dm" onsubmit="dispatchDmCampaign(event)" style="display: none;">
+            <div class="form-group">
+              <label class="form-label">Recipients (Comma or line separated usernames, e.g. @user1, @user2)</label>
+              <textarea id="dm-recipients" class="form-control" rows="3" placeholder="@CryptoFactsScout, @Mr_AnkitGupta" required></textarea>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Message Text</label>
+              <textarea id="dm-message" class="form-control" rows="3" placeholder="Hello! Welcome to our Telegram community..." required></textarea>
+            </div>
+
+            <!-- Smart Delay Settings for DM -->
+            <div class="form-group" style="background: rgba(15, 23, 42, 0.5); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 8px; padding: 0.85rem; margin-top: 1rem;">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.6rem; flex-wrap: wrap; gap: 0.5rem;">
+                <label class="form-label" style="margin: 0; font-weight: 600; color: #f1f5f9; display: flex; align-items: center; gap: 0.4rem;">
+                  ⏱️ Message Delivery Delay Mode
+                </label>
+                <select id="dm-delay-mode" class="form-control" style="width: auto; padding: 0.25rem 0.5rem; font-size: 0.85rem;" onchange="onDelayModeChange('dm')">
+                  <option value="random" selected>🎲 Variable / Random Range (e.g. 10s - 50s)</option>
+                  <option value="fixed">⏱️ Fixed Interval (e.g. 3s)</option>
+                  <option value="custom">📋 Custom Sequence (e.g. 10, 50, 20, 15)</option>
+                </select>
+              </div>
+
+              <!-- Mode: Fixed -->
+              <div id="dm-delay-fixed-box" style="display: none;">
+                <div style="display: flex; align-items: center; gap: 0.75rem;">
+                  <input type="number" id="dm-interval" class="form-control" value="3" min="1" max="300" style="max-width: 140px;">
+                  <span style="font-size: 0.85rem; color: #94a3b8;">seconds delay between recipients</span>
+                </div>
+              </div>
+
+              <!-- Mode: Random Variable Range -->
+              <div id="dm-delay-random-box">
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
+                  <div>
+                    <label style="font-size: 0.8rem; color: #cbd5e1; margin-bottom: 0.25rem; display: block;">Min Delay (seconds):</label>
+                    <input type="number" id="dm-delay-min" class="form-control" value="10" min="1" max="3600">
+                  </div>
+                  <div>
+                    <label style="font-size: 0.8rem; color: #cbd5e1; margin-bottom: 0.25rem; display: block;">Max Delay (seconds):</label>
+                    <input type="number" id="dm-delay-max" class="form-control" value="50" min="1" max="3600">
+                  </div>
+                </div>
+                <div style="margin-top: 0.5rem; font-size: 0.82rem; color: #38bdf8; display: flex; align-items: center; gap: 0.35rem;">
+                  <span>💡</span> <span>Each message is randomly delayed between min & max (e.g. 10s, 50s, 20s, 15s...).</span>
+                </div>
+              </div>
+
+              <!-- Mode: Custom Sequence -->
+              <div id="dm-delay-custom-box" style="display: none;">
+                <label style="font-size: 0.8rem; color: #cbd5e1; margin-bottom: 0.25rem; display: block;">Custom delays sequence (comma-separated seconds):</label>
+                <input type="text" id="dm-delay-custom" class="form-control" value="10, 50, 20, 15" placeholder="e.g. 10, 50, 20, 15">
+                <div style="margin-top: 0.4rem; font-size: 0.82rem; color: #a78bfa;">
+                  Recipient 1 +10s ➔ Recipient 2 +50s ➔ Recipient 3 +20s ➔ Recipient 4 +15s.
+                </div>
+              </div>
+            </div>
+
+            <button type="submit" class="btn btn-gold" style="margin-top: 1rem;">✉️ Send to Every User</button>
+          </form>
+
+          <!-- Form 3: Reaction Campaign -->
+          <form id="form-campaign-reaction" onsubmit="dispatchReactionCampaign(event)" style="display: none;">
+            <div class="form-group">
+              <label class="form-label">Target Post URL</label>
+              <input type="text" id="reaction-post-url" class="form-control" placeholder="https://t.me/ForPayoutRecords/743" required>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Select Emojis to Rotate (Round-Robin)</label>
+              <div style="display: flex; gap: 0.75rem; font-size: 1.5rem;" id="emoji-selectors">
+                <label style="cursor: pointer;"><input type="checkbox" name="emoji-choice" value="👍" checked> 👍</label>
+                <label style="cursor: pointer;"><input type="checkbox" name="emoji-choice" value="❤️" checked> ❤️</label>
+                <label style="cursor: pointer;"><input type="checkbox" name="emoji-choice" value="🔥" checked> 🔥</label>
+                <label style="cursor: pointer;"><input type="checkbox" name="emoji-choice" value="🎉"> 🎉</label>
+                <label style="cursor: pointer;"><input type="checkbox" name="emoji-choice" value="🚀"> 🚀</label>
+              </div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Reaction Count (Total accounts)</label>
+              <input type="number" id="reaction-count" class="form-control" value="4" min="1" max="100">
+            </div>
+
+            <!-- Smart Delay Settings for Reactions -->
+            <div class="form-group" style="background: rgba(15, 23, 42, 0.5); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 8px; padding: 0.85rem; margin-top: 1rem;">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.6rem; flex-wrap: wrap; gap: 0.5rem;">
+                <label class="form-label" style="margin: 0; font-weight: 600; color: #f1f5f9; display: flex; align-items: center; gap: 0.4rem;">
+                  ⏱️ Reaction Interval Delay Mode
+                </label>
+                <select id="reaction-delay-mode" class="form-control" style="width: auto; padding: 0.25rem 0.5rem; font-size: 0.85rem;" onchange="onDelayModeChange('reaction')">
+                  <option value="random" selected>🎲 Variable / Random Range (e.g. 10s - 50s)</option>
+                  <option value="fixed">⏱️ Fixed Interval (e.g. 2s)</option>
+                  <option value="custom">📋 Custom Sequence (e.g. 10, 50, 20, 15)</option>
+                </select>
+              </div>
+
+              <!-- Mode: Fixed -->
+              <div id="reaction-delay-fixed-box" style="display: none;">
+                <div style="display: flex; align-items: center; gap: 0.75rem;">
+                  <input type="number" id="reaction-interval" class="form-control" value="2" min="1" max="300" style="max-width: 140px;">
+                  <span style="font-size: 0.85rem; color: #94a3b8;">seconds delay between consecutive reactions</span>
+                </div>
+              </div>
+
+              <!-- Mode: Random Variable Range -->
+              <div id="reaction-delay-random-box">
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
+                  <div>
+                    <label style="font-size: 0.8rem; color: #cbd5e1; margin-bottom: 0.25rem; display: block;">Min Delay (seconds):</label>
+                    <input type="number" id="reaction-delay-min" class="form-control" value="10" min="1" max="3600">
+                  </div>
+                  <div>
+                    <label style="font-size: 0.8rem; color: #cbd5e1; margin-bottom: 0.25rem; display: block;">Max Delay (seconds):</label>
+                    <input type="number" id="reaction-delay-max" class="form-control" value="50" min="1" max="3600">
+                  </div>
+                </div>
+                <div style="margin-top: 0.5rem; font-size: 0.82rem; color: #38bdf8; display: flex; align-items: center; gap: 0.35rem;">
+                  <span>💡</span> <span>Each reaction is randomly delayed between min & max (e.g. Task 1: 10s, Task 2: 50s, Task 3: 20s...).</span>
+                </div>
+              </div>
+
+              <!-- Mode: Custom Sequence -->
+              <div id="reaction-delay-custom-box" style="display: none;">
+                <label style="font-size: 0.8rem; color: #cbd5e1; margin-bottom: 0.25rem; display: block;">Custom delays sequence (comma-separated seconds):</label>
+                <input type="text" id="reaction-delay-custom" class="form-control" value="10, 50, 20, 15" placeholder="e.g. 10, 50, 20, 15">
+                <div style="margin-top: 0.4rem; font-size: 0.82rem; color: #a78bfa;">
+                  Reaction 1 +10s ➔ Reaction 2 +50s ➔ Reaction 3 +20s ➔ Reaction 4 +15s.
+                </div>
+              </div>
+            </div>
+
+            <button type="submit" class="btn btn-gold" style="margin-top: 1rem;">🔥 Dispatch Reactions</button>
+          </form>
+
+          <!-- Form 4: Group Messages -->
+          <form id="form-campaign-group" onsubmit="dispatchGroupCampaign(event)" style="display: none;">
+            <div class="form-group">
+              <label class="form-label">Target Group Link / Username</label>
+              <input type="text" id="group-target" class="form-control" placeholder="https://t.me/+2YCMvYKjW1wzNjM1 or @group_username" required>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Messages to Send Line-by-Line</label>
+              <textarea id="group-messages" class="form-control" rows="3" placeholder="Message part 1&#10;Message part 2" required></textarea>
+            </div>
+
+            <!-- Smart Delay Settings for Group Messages -->
+            <div class="form-group" style="background: rgba(15, 23, 42, 0.5); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 8px; padding: 0.85rem; margin-top: 1rem;">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.6rem; flex-wrap: wrap; gap: 0.5rem;">
+                <label class="form-label" style="margin: 0; font-weight: 600; color: #f1f5f9; display: flex; align-items: center; gap: 0.4rem;">
+                  ⏱️ Group Broadcast Delay Mode
+                </label>
+                <select id="group-delay-mode" class="form-control" style="width: auto; padding: 0.25rem 0.5rem; font-size: 0.85rem;" onchange="onDelayModeChange('group')">
+                  <option value="random" selected>🎲 Variable / Random Range (e.g. 10s - 50s)</option>
+                  <option value="fixed">⏱️ Fixed Interval (e.g. 3s)</option>
+                  <option value="custom">📋 Custom Sequence (e.g. 10, 50, 20, 15)</option>
+                </select>
+              </div>
+
+              <!-- Mode: Fixed -->
+              <div id="group-delay-fixed-box" style="display: none;">
+                <div style="display: flex; align-items: center; gap: 0.75rem;">
+                  <input type="number" id="group-interval" class="form-control" value="3" min="1" max="300" style="max-width: 140px;">
+                  <span style="font-size: 0.85rem; color: #94a3b8;">seconds delay between consecutive messages</span>
+                </div>
+              </div>
+
+              <!-- Mode: Random Variable Range -->
+              <div id="group-delay-random-box">
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
+                  <div>
+                    <label style="font-size: 0.8rem; color: #cbd5e1; margin-bottom: 0.25rem; display: block;">Min Delay (seconds):</label>
+                    <input type="number" id="group-delay-min" class="form-control" value="10" min="1" max="3600">
+                  </div>
+                  <div>
+                    <label style="font-size: 0.8rem; color: #cbd5e1; margin-bottom: 0.25rem; display: block;">Max Delay (seconds):</label>
+                    <input type="number" id="group-delay-max" class="form-control" value="50" min="1" max="3600">
+                  </div>
+                </div>
+                <div style="margin-top: 0.5rem; font-size: 0.82rem; color: #38bdf8; display: flex; align-items: center; gap: 0.35rem;">
+                  <span>💡</span> <span>Each message is randomly delayed between min & max (e.g. Message 1: 10s, Message 2: 50s...).</span>
+                </div>
+              </div>
+
+              <!-- Mode: Custom Sequence -->
+              <div id="group-delay-custom-box" style="display: none;">
+                <label style="font-size: 0.8rem; color: #cbd5e1; margin-bottom: 0.25rem; display: block;">Custom delays sequence (comma-separated seconds):</label>
+                <input type="text" id="group-delay-custom" class="form-control" value="10, 50, 20, 15" placeholder="e.g. 10, 50, 20, 15">
+                <div style="margin-top: 0.4rem; font-size: 0.82rem; color: #a78bfa;">
+                  Message 1 +10s ➔ Message 2 +50s ➔ Message 3 +20s ➔ Message 4 +15s.
+                </div>
+              </div>
+            </div>
+
+            <button type="submit" class="btn btn-gold" style="margin-top: 1rem;">📢 Dispatch Group Messages</button>
+          </form>
+
+          <!-- Form 5: Community Join / Leave -->
+          <form id="form-campaign-join" onsubmit="dispatchJoinCampaign(event)" style="display: none;">
+            <div class="form-group">
+              <label class="form-label">Action</label>
+              <select id="join-action" class="form-control">
+                <option value="join">Join Channel / Group</option>
+                <option value="leave">Leave Channel / Group</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Target Link or Username</label>
+              <input type="text" id="join-target" class="form-control" placeholder="https://t.me/+2YCMvYKjW1wzNjM1 or @group_username" required>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Number of Accounts</label>
+              <input type="number" id="join-count" class="form-control" value="2" min="1" max="100">
+            </div>
+
+            <!-- Smart Delay Settings for Join / Leave -->
+            <div class="form-group" style="background: rgba(15, 23, 42, 0.5); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 8px; padding: 0.85rem; margin-top: 1rem;">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.6rem; flex-wrap: wrap; gap: 0.5rem;">
+                <label class="form-label" style="margin: 0; font-weight: 600; color: #f1f5f9; display: flex; align-items: center; gap: 0.4rem;">
+                  ⏱️ Account Join/Leave Delay Mode
+                </label>
+                <select id="join-delay-mode" class="form-control" style="width: auto; padding: 0.25rem 0.5rem; font-size: 0.85rem;" onchange="onDelayModeChange('join')">
+                  <option value="random" selected>🎲 Variable / Random Range (e.g. 10s - 50s)</option>
+                  <option value="fixed">⏱️ Fixed Interval (e.g. 5s)</option>
+                  <option value="custom">📋 Custom Sequence (e.g. 10, 50, 20, 15)</option>
+                </select>
+              </div>
+
+              <!-- Mode: Fixed -->
+              <div id="join-delay-fixed-box" style="display: none;">
+                <div style="display: flex; align-items: center; gap: 0.75rem;">
+                  <input type="number" id="join-interval" class="form-control" value="5" min="1" max="300" style="max-width: 140px;">
+                  <span style="font-size: 0.85rem; color: #94a3b8;">seconds delay between consecutive accounts</span>
+                </div>
+              </div>
+
+              <!-- Mode: Random Variable Range -->
+              <div id="join-delay-random-box">
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
+                  <div>
+                    <label style="font-size: 0.8rem; color: #cbd5e1; margin-bottom: 0.25rem; display: block;">Min Delay (seconds):</label>
+                    <input type="number" id="join-delay-min" class="form-control" value="10" min="1" max="3600">
+                  </div>
+                  <div>
+                    <label style="font-size: 0.8rem; color: #cbd5e1; margin-bottom: 0.25rem; display: block;">Max Delay (seconds):</label>
+                    <input type="number" id="join-delay-max" class="form-control" value="50" min="1" max="3600">
+                  </div>
+                </div>
+                <div style="margin-top: 0.5rem; font-size: 0.82rem; color: #38bdf8; display: flex; align-items: center; gap: 0.35rem;">
+                  <span>💡</span> <span>Accounts join/leave with random delay between min & max (e.g. Acc 1: 10s, Acc 2: 50s...).</span>
+                </div>
+              </div>
+
+              <!-- Mode: Custom Sequence -->
+              <div id="join-delay-custom-box" style="display: none;">
+                <label style="font-size: 0.8rem; color: #cbd5e1; margin-bottom: 0.25rem; display: block;">Custom delays sequence (comma-separated seconds):</label>
+                <input type="text" id="join-delay-custom" class="form-control" value="10, 50, 20, 15" placeholder="e.g. 10, 50, 20, 15">
+                <div style="margin-top: 0.4rem; font-size: 0.82rem; color: #a78bfa;">
+                  Account 1 +10s ➔ Account 2 +50s ➔ Account 3 +20s ➔ Account 4 +15s.
+                </div>
+              </div>
+            </div>
+
+            <button type="submit" class="btn btn-gold" style="margin-top: 1rem;">👥 Execute Community Operation</button>
+          </form>
+        </div>
+      </section>
+
+      <!-- ================================================================ -->
+      <!-- 4. TELEGRAM ACCOUNTS SECTION (Strictly Admin Only)               -->
+      <!-- ================================================================ -->
+      <section id="sec-accounts" style="display: none;">
+        <div class="panel gold-glow">
+          <div class="panel-header">
+            <div class="panel-title"><span>📱</span> Telegram Account Pool</div>
+            <button class="btn btn-gold" onclick="openAddAccountModal()">➕ Add Telegram Account</button>
+          </div>
+          <div class="table-container">
+            <table>
+              <thead>
+                <tr>
+                  <th>Phone Number</th>
+                  <th>Username</th>
+                  <th>Status</th>
+                  <th>Health Score</th>
+                  <th>Capabilities</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="accounts-table-body">
+                <tr><td colspan="6" style="text-align: center;">Loading accounts...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================================================================ -->
+      <!-- 5. USER MANAGEMENT SECTION (Strictly Admin Only)                 -->
+      <!-- ================================================================ -->
+      <section id="sec-users" style="display: none;">
+        <div class="panel gold-glow">
+          <div class="panel-header">
+            <div class="panel-title"><span>👥</span> User Authorization & Approvals</div>
+          </div>
+          <p style="color: var(--text-muted); margin-bottom: 1.5rem;">
+            Control access and roles. Regular users are permitted to run campaign automation, but cannot view or manage other accounts or users.
+          </p>
+          <div class="table-container">
+            <table>
+              <thead>
+                <tr>
+                  <th>Email</th>
+                  <th>Name</th>
+                  <th>Role</th>
+                  <th>Status</th>
+                  <th>Manage Users</th>
+                  <th>Registered</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="users-table-body">
+                <tr><td colspan="6" style="text-align: center;">Loading users...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================================================================ -->
+      <!-- 6. LIVE ACTIVITY FEED (Accessible to Both)                       -->
+      <!-- ================================================================ -->
+      <section id="sec-activity" style="display: none;">
+        <div class="panel">
+          <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+            <div>
+              <div class="panel-title"><span>⚡</span> Live Campaign Execution Feed</div>
+              <p style="color: var(--text-muted); font-size: 0.88rem; margin: 0.25rem 0 0 0;">
+                Unified execution feed: Each user dispatch appears in <strong>one row</strong> with real-time progress and final status (Completed, Partially Completed, or Failed).
+              </p>
+            </div>
+            <button class="btn btn-secondary btn-sm" onclick="loadTasks()">🔄 Refresh Feed</button>
+          </div>
+          <div class="table-container">
+            <table>
+              <thead>
+                <tr>
+                  <th>Campaign ID</th>
+                  <th>Action Type</th>
+                  <th>Operator</th>
+                  <th>Target Destination</th>
+                  <th>Progress & Breakdown</th>
+                  <th>Status</th>
+                  <th>Started</th>
+                </tr>
+              </thead>
+              <tbody id="tasks-table-body">
+                <tr><td colspan="7" style="text-align: center;">Loading campaign activity...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- Interactive Modal: Add Telegram Account (Step 1 & 2) -->
+  <div id="modal-add-account" class="modal-overlay">
+    <div class="modal-content">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+        <h3 style="font-weight: 700; color: #fbbf24;">Add Telegram Account</h3>
+        <button onclick="closeAddAccountModal()" style="background: none; border: none; color: #fff; font-size: 1.5rem; cursor: pointer;">&times;</button>
+      </div>
+
+      <!-- Step 1: Send Phone Code -->
+      <div id="account-step-1">
+        <p style="color: var(--text-muted); font-size: 0.88rem; margin-bottom: 1rem;">
+          Enter the international phone number. Telegram will dispatch a 5-digit verification code.
+        </p>
+        <div class="form-group">
+          <label class="form-label">Phone Number (with country code)</label>
+          <input type="text" id="modal-phone" class="form-control" placeholder="+15409870471 or +919541650687" required>
+        </div>
+        <button class="btn btn-gold" style="width: 100%;" onclick="submitSendCode()">Send Verification Code</button>
+      </div>
+
+      <!-- Step 2: Verify Code -->
+      <div id="account-step-2" style="display: none;">
+        <p style="color: var(--text-muted); font-size: 0.88rem; margin-bottom: 1rem;">
+          Enter the 5-digit code Telegram sent to your app or SMS.
+        </p>
+        <div class="form-group">
+          <label class="form-label">Verification Code (5 digits)</label>
+          <input type="text" id="modal-code" class="form-control" placeholder="12345" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label">2FA Password (if enabled on account)</label>
+          <input type="password" id="modal-password" class="form-control" placeholder="Leave empty if no 2FA">
+        </div>
+        <button class="btn btn-gold" style="width: 100%;" onclick="submitVerifyCode()">Verify & Register Account</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Container -->
+  <div id="toast-container" class="toast-container"></div>
+
+  <script src="/js/app.js"></script>
+</body>
+</html>

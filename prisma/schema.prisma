@@ -1,0 +1,302 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum AccountStatus {
+  ACTIVE
+  COOLDOWN
+  RESTRICTED
+  REAUTH_REQUIRED
+  UNAVAILABLE
+  DISABLED
+}
+
+enum TaskStatus {
+  CREATED
+  QUEUED
+  WAITING_FOR_ACCOUNT
+  ASSIGNED
+  RUNNING
+  RETRY_WAIT
+  REASSIGNABLE
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+enum TaskPriority {
+  LOW
+  NORMAL
+  HIGH
+  CRITICAL
+}
+
+enum JobStatus {
+  CREATED
+  QUEUED
+  RUNNING
+  COMPLETED
+  PARTIALLY_COMPLETED
+  FAILED
+  CANCELLED
+}
+
+enum UserRole {
+  ADMIN
+  USER
+}
+
+enum UserStatus {
+  PENDING
+  ACTIVE
+  SUSPENDED
+}
+
+model Tenant {
+  id        String   @id @default(uuid())
+  name      String
+  apiKey    String   @unique
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  users        User[]
+  accounts     Account[]
+  jobs         Job[]
+  tasks        Task[]
+  taskAttempts TaskAttempt[]
+  taskLeases   TaskLease[]
+  taskEvents   TaskEvent[]
+
+  @@map("tenants")
+}
+
+model User {
+  id           String     @id @default(uuid())
+  tenantId     String
+  email        String     @unique
+  passwordHash String
+  name         String?
+  role         UserRole   @default(USER)
+  status       UserStatus @default(PENDING)
+  canManageUsers Boolean    @default(false)
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, role])
+  @@index([tenantId, status])
+  @@map("users")
+}
+
+model Account {
+  id               String        @id @default(uuid())
+  tenantId         String
+  phone            String
+  username         String?
+  sessionString    String?       // MTProto session string (encrypted in production)
+  apiId            Int?
+  apiHash          String?
+  status           AccountStatus @default(ACTIVE)
+  maxConcurrency   Int           @default(1)
+  currentTaskCount Int           @default(0)
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+
+  tenant       Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  capability   AccountCapability?
+  health       AccountHealth?
+  tasks        Task[]
+  taskAttempts TaskAttempt[]
+  taskLeases   TaskLease[]
+  taskEvents   TaskEvent[]
+
+  @@unique([tenantId, phone])
+  @@index([tenantId, status])
+  @@index([status])
+  @@map("accounts")
+}
+
+model AccountCapability {
+  id                   String   @id @default(uuid())
+  accountId            String   @unique
+  canSendMessage       Boolean  @default(true)
+  canReplyMessage      Boolean  @default(true)
+  canComment           Boolean  @default(true)
+  canReaction          Boolean  @default(true)
+  canJoinChat          Boolean  @default(true)
+  canLeaveChat         Boolean  @default(true)
+  canForwardMessage    Boolean  @default(true)
+  canSendMedia         Boolean  @default(true)
+  canEditMessage       Boolean  @default(true)
+  canDeleteMessage     Boolean  @default(true)
+  canGetMessages       Boolean  @default(true)
+  canGetChatInfo       Boolean  @default(true)
+  canGetMembers        Boolean  @default(true)
+  canGetAdmins         Boolean  @default(true)
+  canGroupOperation    Boolean  @default(true)
+  canChannelOperation  Boolean  @default(true)
+  customCapabilities   Json?
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  account Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@map("account_capabilities")
+}
+
+model AccountHealth {
+  id                  String    @id @default(uuid())
+  accountId           String    @unique
+  successCount        Int       @default(0)
+  failureCount        Int       @default(0)
+  consecutiveFailures Int       @default(0)
+  lastSuccessAt       DateTime?
+  lastFailureAt       DateTime?
+  lastErrorCode       String?
+  lastErrorAt         DateTime?
+  healthScore         Float     @default(100.0)
+  cooldownUntil       DateTime?
+  cooldownReason      String?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  account Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@map("account_health")
+}
+
+model Job {
+  id             String    @id @default(uuid())
+  tenantId       String
+  type           String
+  status         JobStatus @default(CREATED)
+  totalTasks     Int       @default(0)
+  completedTasks Int       @default(0)
+  failedTasks    Int       @default(0)
+  pendingTasks   Int       @default(0)
+  metadata       Json?
+  startedAt      DateTime?
+  completedAt    DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tasks  Task[]
+
+  @@index([tenantId, status])
+  @@index([status])
+  @@map("jobs")
+}
+
+model Task {
+  id                 String       @id @default(uuid())
+  tenantId           String
+  jobId              String?
+  idempotencyKey     String?
+  type               String
+  payload            Json
+  priority           TaskPriority @default(NORMAL)
+  status             TaskStatus   @default(CREATED)
+  requiredCapability String       @default("SEND_MESSAGE")
+  assignedAccountId  String?
+  attemptCount       Int          @default(0)
+  maxAttempts        Int          @default(5)
+  scheduledAt        DateTime     @default(now())
+  leaseId            String?
+  leaseExpiresAt     DateTime?
+  lastError          String?
+  lastErrorCode      String?
+  result             Json?
+  completedAt        DateTime?
+  createdAt          DateTime     @default(now())
+  updatedAt          DateTime     @updatedAt
+
+  tenant          Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  job             Job?          @relation(fields: [jobId], references: [id], onDelete: SetNull)
+  assignedAccount Account?      @relation(fields: [assignedAccountId], references: [id], onDelete: SetNull)
+  attempts        TaskAttempt[]
+  leases          TaskLease[]
+  events          TaskEvent[]
+
+  @@unique([tenantId, idempotencyKey])
+  @@index([tenantId, status])
+  @@index([status, priority, scheduledAt])
+  @@index([assignedAccountId])
+  @@index([scheduledAt])
+  @@index([jobId])
+  @@map("tasks")
+}
+
+model TaskAttempt {
+  id            String    @id @default(uuid())
+  taskId        String
+  tenantId      String
+  accountId     String?
+  attemptNumber Int
+  leaseId       String?
+  status        String    // SUCCESS, FAILED, EXPIRED, CANCELLED
+  errorCode     String?
+  errorMessage  String?
+  rawError      Json?
+  durationMs    Int?
+  startedAt     DateTime  @default(now())
+  finishedAt    DateTime?
+  createdAt     DateTime  @default(now())
+
+  task    Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  tenant  Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  account Account? @relation(fields: [accountId], references: [id], onDelete: SetNull)
+
+  @@index([taskId])
+  @@index([tenantId])
+  @@index([accountId])
+  @@map("task_attempts")
+}
+
+model TaskLease {
+  id         String   @id // UUID generated by LeaseManager
+  taskId     String
+  tenantId   String
+  accountId  String
+  workerId   String
+  expiresAt  DateTime
+  isRevoked  Boolean  @default(false)
+  renewedAt  DateTime @default(now())
+  createdAt  DateTime @default(now())
+
+  task    Task    @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  tenant  Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  account Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@index([taskId])
+  @@index([expiresAt])
+  @@index([tenantId])
+  @@map("task_leases")
+}
+
+model TaskEvent {
+  id        String   @id @default(uuid())
+  taskId    String
+  tenantId  String
+  accountId String?
+  attemptId String?
+  eventType String   // e.g. TASK_CREATED, TASK_QUEUED, ACCOUNT_SELECTED, etc.
+  metadata  Json?
+  timestamp DateTime @default(now())
+
+  task    Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  tenant  Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  account Account? @relation(fields: [accountId], references: [id], onDelete: SetNull)
+
+  @@index([taskId])
+  @@index([tenantId])
+  @@index([timestamp])
+  @@map("task_events")
+}

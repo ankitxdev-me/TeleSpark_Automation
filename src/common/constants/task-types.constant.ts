@@ -1,0 +1,53 @@
+export enum TaskType {
+  SEND_MESSAGE = 'SEND_MESSAGE',
+  REPLY_MESSAGE = 'REPLY_MESSAGE',
+  COMMENT = 'COMMENT',
+  REACTION = 'REACTION',
+  JOIN_CHAT = 'JOIN_CHAT',
+  LEAVE_CHAT = 'LEAVE_CHAT',
+  FORWARD_MESSAGE = 'FORWARD_MESSAGE',
+  SEND_MEDIA = 'SEND_MEDIA',
+  EDIT_MESSAGE = 'EDIT_MESSAGE',
+  DELETE_MESSAGE = 'DELETE_MESSAGE',
+  GET_MESSAGES = 'GET_MESSAGES',
+  GET_CHAT_INFO = 'GET_CHAT_INFO',
+  GET_MEMBERS = 'GET_MEMBERS',
+  GET_ADMINS = 'GET_ADMINS',
+}
+
+export enum AccountCapabilityType {
+  SEND_MESSAGE = 'canSendMessage',
+  REPLY_MESSAGE = 'canReplyMessage',
+  COMMENT = 'canComment',
+  REACTION = 'canReaction',
+  JOIN_CHAT = 'canJoinChat',
+  LEAVE_CHAT = 'canLeaveChat',
+  FORWARD_MESSAGE = 'canForwardMessage',
+  SEND_MEDIA = 'canSendMedia',
+  EDIT_MESSAGE = 'canEditMessage',
+  DELETE_MESSAGE = 'canDeleteMessage',
+  GET_MESSAGES = 'canGetMessages',
+  GET_CHAT_INFO = 'canGetChatInfo',
+  GET_MEMBERS = 'canGetMembers',
+  GET_ADMINS = 'canGetAdmins',
+  GROUP_OPERATION = 'canGroupOperation',
+  CHANNEL_OPERATION = 'canChannelOperation',
+}
+
+// Maps task types to their default required account capability
+export const TASK_CAPABILITY_MAP: Record<string, string> = {
+  [TaskType.SEND_MESSAGE]: 'canSendMessage',
+  [TaskType.REPLY_MESSAGE]: 'canReplyMessage',
+  [TaskType.COMMENT]: 'canComment',
+  [TaskType.REACTION]: 'canReaction',
+  [TaskType.JOIN_CHAT]: 'canJoinChat',
+  [TaskType.LEAVE_CHAT]: 'canLeaveChat',
+  [TaskType.FORWARD_MESSAGE]: 'canForwardMessage',
+  [TaskType.SEND_MEDIA]: 'canSendMedia',
+  [TaskType.EDIT_MESSAGE]: 'canEditMessage',
+  [TaskType.DELETE_MESSAGE]: 'canDeleteMessage',
+  [TaskType.GET_MESSAGES]: 'canGetMessages',
+  [TaskType.GET_CHAT_INFO]: 'canGetChatInfo',
+  [TaskType.GET_MEMBERS]: 'canGetMembers',
+  [TaskType.GET_ADMINS]: 'canGetAdmins',
+};
