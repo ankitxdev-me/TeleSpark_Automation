@@ -3,6 +3,10 @@ const API_BASE = '/api/v1';
 let currentToken = localStorage.getItem('telespark_token');
 let currentUser = JSON.parse(localStorage.getItem('telespark_user') || 'null');
 let pendingPhone = null;
+let pendingPhoneCodeHash = null;
+let isSendingCode = false;
+let isVerifyingCode = false;
+let resendTimer = null;
 
 // Wizard State
 let wizardState = {
@@ -1261,12 +1265,6 @@ async function dispatchJoinCampaign(e) {
 // ==========================================================================
 // 7. INTERACTIVE MODAL: ADD TELEGRAM ACCOUNT
 // ==========================================================================
-
-let pendingPhone = '';
-let pendingPhoneCodeHash = '';
-let isSendingCode = false;
-let isVerifyingCode = false;
-let resendTimer = null;
 
 function openAddAccountModal() {
   pendingPhone = '';
