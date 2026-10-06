@@ -1262,40 +1262,121 @@ async function dispatchJoinCampaign(e) {
 // 7. INTERACTIVE MODAL: ADD TELEGRAM ACCOUNT
 // ==========================================================================
 
+let pendingPhone = '';
+let pendingPhoneCodeHash = '';
+let isSendingCode = false;
+let isVerifyingCode = false;
+let resendTimer = null;
+
 function openAddAccountModal() {
+  pendingPhone = '';
+  pendingPhoneCodeHash = '';
+  isSendingCode = false;
+  isVerifyingCode = false;
+  if (resendTimer) clearInterval(resendTimer);
+
   document.getElementById('modal-add-account').classList.add('active');
   document.getElementById('account-step-1').style.display = 'block';
   document.getElementById('account-step-2').style.display = 'none';
   document.getElementById('modal-phone').value = '';
+
+  const sendBtn = document.getElementById('btn-modal-send-code');
+  if (sendBtn) {
+    sendBtn.disabled = false;
+    sendBtn.innerHTML = '<span>Send Verification Code</span>';
+    sendBtn.style.opacity = '1';
+    sendBtn.style.cursor = 'pointer';
+  }
 }
 
 function closeAddAccountModal() {
+  if (resendTimer) clearInterval(resendTimer);
   document.getElementById('modal-add-account').classList.remove('active');
 }
 
-async function submitSendCode() {
-  const phone = document.getElementById('modal-phone').value.trim();
+function startResendCountdown(seconds = 45) {
+  if (resendTimer) clearInterval(resendTimer);
+  const resendBtn = document.getElementById('btn-modal-resend-code');
+  const countdownSpan = document.getElementById('resend-countdown');
+  if (!resendBtn) return;
+
+  let remaining = seconds;
+  resendBtn.disabled = true;
+  resendBtn.style.opacity = '0.5';
+  resendBtn.style.cursor = 'not-allowed';
+  if (countdownSpan) countdownSpan.textContent = remaining;
+
+  resendTimer = setInterval(() => {
+    remaining--;
+    if (countdownSpan) countdownSpan.textContent = remaining;
+    if (remaining <= 0) {
+      clearInterval(resendTimer);
+      resendBtn.disabled = false;
+      resendBtn.style.opacity = '1';
+      resendBtn.style.cursor = 'pointer';
+      resendBtn.innerHTML = 'Resend Verification Code';
+    }
+  }, 1000);
+}
+
+async function resendVerificationCode() {
+  if (!pendingPhone || isSendingCode) return;
+  const resendBtn = document.getElementById('btn-modal-resend-code');
+  if (resendBtn) {
+    resendBtn.disabled = true;
+    resendBtn.textContent = 'Requesting new code...';
+  }
+  await submitSendCode(pendingPhone);
+}
+
+async function submitSendCode(overridePhone) {
+  if (isSendingCode) return; // Prevent double/triple click
+
+  const phoneInput = document.getElementById('modal-phone');
+  const phone = (overridePhone || (phoneInput ? phoneInput.value : '')).trim();
   if (!phone) {
     showToast('Please enter a phone number', 'error');
     return;
   }
 
+  const sendBtn = document.getElementById('btn-modal-send-code');
+  isSendingCode = true;
+  if (sendBtn) {
+    sendBtn.disabled = true;
+    sendBtn.innerHTML = '<span style="display:inline-block; animation: spin 1s linear infinite;">⏳</span> Connecting to Telegram...';
+    sendBtn.style.opacity = '0.7';
+    sendBtn.style.cursor = 'not-allowed';
+  }
+
   try {
-    showToast('Requesting verification code from Telegram...', 'info');
+    showToast('Contacting Telegram MTProto gateway (please wait)...', 'info');
     const res = await apiCall('/accounts/send-code', 'POST', { phone });
     pendingPhone = phone;
+    pendingPhoneCodeHash = res.phoneCodeHash || '';
 
-    showToast(`Code dispatched to ${phone}!`, 'success');
+    showToast(`Verification code sent to ${phone}!`, 'success');
     document.getElementById('account-step-1').style.display = 'none';
     document.getElementById('account-step-2').style.display = 'block';
     document.getElementById('modal-code').value = '';
+    startResendCountdown(45);
   } catch (err) {
-    showToast(err.message, 'error');
+    showToast(err.message || 'Failed to dispatch verification code', 'error');
+  } finally {
+    isSendingCode = false;
+    if (sendBtn) {
+      sendBtn.disabled = false;
+      sendBtn.innerHTML = '<span>Send Verification Code</span>';
+      sendBtn.style.opacity = '1';
+      sendBtn.style.cursor = 'pointer';
+    }
   }
 }
 
 async function submitVerifyCode() {
-  const code = document.getElementById('modal-code').value.trim();
+  if (isVerifyingCode) return; // Prevent double/triple click
+
+  const codeInput = document.getElementById('modal-code');
+  const code = (codeInput ? codeInput.value : '').trim();
   const password = document.getElementById('modal-password').value.trim() || undefined;
 
   if (!code) {
@@ -1303,20 +1384,39 @@ async function submitVerifyCode() {
     return;
   }
 
+  const verifyBtn = document.getElementById('btn-modal-verify-code');
+  isVerifyingCode = true;
+  if (verifyBtn) {
+    verifyBtn.disabled = true;
+    verifyBtn.innerHTML = '<span style="display:inline-block; animation: spin 1s linear infinite;">⏳</span> Verifying & Saving Session...';
+    verifyBtn.style.opacity = '0.7';
+    verifyBtn.style.cursor = 'not-allowed';
+  }
+
   try {
     showToast('Authenticating MTProto session string with Telegram...', 'info');
     const res = await apiCall('/accounts/verify-code', 'POST', {
       phone: pendingPhone,
+      phoneCodeHash: pendingPhoneCodeHash,
       code,
       password,
     });
 
+    if (resendTimer) clearInterval(resendTimer);
     showToast(`Account successfully registered! Phone: ${res.account?.phone}`, 'success');
     closeAddAccountModal();
     loadAccounts();
     loadStats();
   } catch (err) {
-    showToast(err.message, 'error');
+    showToast(err.message || 'Verification failed. Please check the code or 2FA password.', 'error');
+  } finally {
+    isVerifyingCode = false;
+    if (verifyBtn) {
+      verifyBtn.disabled = false;
+      verifyBtn.innerHTML = '<span>Verify & Register Account</span>';
+      verifyBtn.style.opacity = '1';
+      verifyBtn.style.cursor = 'pointer';
+    }
   }
 }
 

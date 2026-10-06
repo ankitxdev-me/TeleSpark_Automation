@@ -687,7 +687,9 @@
           <label class="form-label">Phone Number (with country code)</label>
           <input type="text" id="modal-phone" class="form-control" placeholder="+15409870471 or +919541650687" required>
         </div>
-        <button class="btn btn-gold" style="width: 100%;" onclick="submitSendCode()">Send Verification Code</button>
+        <button class="btn btn-gold" id="btn-modal-send-code" style="width: 100%; display: flex; align-items: center; justify-content: center; gap: 8px;" onclick="submitSendCode()">
+          <span>Send Verification Code</span>
+        </button>
       </div>
 
       <!-- Step 2: Verify Code -->
@@ -703,7 +705,14 @@
           <label class="form-label">2FA Password (if enabled on account)</label>
           <input type="password" id="modal-password" class="form-control" placeholder="Leave empty if no 2FA">
         </div>
-        <button class="btn btn-gold" style="width: 100%;" onclick="submitVerifyCode()">Verify & Register Account</button>
+        <button class="btn btn-gold" id="btn-modal-verify-code" style="width: 100%; display: flex; align-items: center; justify-content: center; gap: 8px;" onclick="submitVerifyCode()">
+          <span>Verify & Register Account</span>
+        </button>
+        <div style="text-align: center; margin-top: 1rem;">
+          <button id="btn-modal-resend-code" onclick="resendVerificationCode()" style="background: none; border: none; color: #fbbf24; font-size: 0.85rem; cursor: pointer; text-decoration: underline;" disabled>
+            Resend Code (wait <span id="resend-countdown">45</span>s)
+          </button>
+        </div>
       </div>
     </div>
   </div>

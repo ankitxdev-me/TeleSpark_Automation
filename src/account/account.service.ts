@@ -16,7 +16,12 @@ import { UpdateAccountDto } from './dtos/update-account.dto';
 
 @Injectable()
 export class AccountService {
-  private readonly tempSessions = new Map<string, { tempSession: string; expiresAt: number }>();
+  private readonly tempSessions = new Map<
+    string,
+    { tempSession: string; phoneCodeHash?: string; expiresAt: number }
+  >();
+  private readonly activeCodeRequests = new Set<string>();
+  private readonly lastCodeRequestTime = new Map<string, number>();
 
   constructor(
     private readonly prisma: PrismaService,
@@ -63,34 +68,57 @@ export class AccountService {
   }
 
   async sendCode(tenantId: string, dto: SendCodeDto): Promise<any> {
-    const apiId = dto.apiId || parseInt(process.env.TELEGRAM_API_ID || '0', 10);
-    const apiHash = dto.apiHash || process.env.TELEGRAM_API_HASH || '';
+    const cleanPhone = dto.phone.trim();
 
-    this.logger.log(`Requesting Telegram login code for ${dto.phone}`, { tenantId, phone: dto.phone });
-
-    const result = await this.executeAuthAction('send_code', {
-      phone: dto.phone,
-      apiId,
-      apiHash,
-    });
-
-    if (!result.success) {
-      throw new BadRequestException(result.errorMessage || 'Failed to dispatch login code from Telegram');
+    // 1. Concurrent In-Flight Request Lock
+    if (this.activeCodeRequests.has(cleanPhone)) {
+      throw new BadRequestException('A code request is already in progress for this phone number. Please wait a moment.');
     }
 
-    // Cache the temporary session in-memory for 10 minutes
-    this.tempSessions.set(dto.phone, {
-      tempSession: result.tempSession,
-      expiresAt: Date.now() + 10 * 60 * 1000,
-    });
+    // 2. Flood / Cooldown Guard (45 seconds between requests)
+    const lastRequested = this.lastCodeRequestTime.get(cleanPhone) || 0;
+    const cooldownRemaining = Math.ceil((lastRequested + 45000 - Date.now()) / 1000);
+    if (cooldownRemaining > 0) {
+      throw new BadRequestException(`Please wait ${cooldownRemaining}s before requesting a new verification code to avoid Telegram flood lockout.`);
+    }
 
-    return {
-      success: true,
-      phone: dto.phone,
-      phoneCodeHash: result.phoneCodeHash,
-      timeout: result.timeout || 300,
-      message: 'Verification code sent successfully to Telegram app/SMS',
-    };
+    this.activeCodeRequests.add(cleanPhone);
+
+    try {
+      const apiId = dto.apiId || parseInt(process.env.TELEGRAM_API_ID || '0', 10);
+      const apiHash = dto.apiHash || process.env.TELEGRAM_API_HASH || '';
+
+      this.logger.log(`Requesting Telegram login code for ${cleanPhone}`, { tenantId, phone: cleanPhone });
+
+      const result = await this.executeAuthAction('send_code', {
+        phone: cleanPhone,
+        apiId,
+        apiHash,
+      });
+
+      if (!result.success) {
+        throw new BadRequestException(result.errorMessage || 'Failed to dispatch login code from Telegram');
+      }
+
+      this.lastCodeRequestTime.set(cleanPhone, Date.now());
+
+      // Cache the temporary session in-memory for 10 minutes
+      this.tempSessions.set(cleanPhone, {
+        tempSession: result.tempSession,
+        phoneCodeHash: result.phoneCodeHash,
+        expiresAt: Date.now() + 10 * 60 * 1000,
+      });
+
+      return {
+        success: true,
+        phone: cleanPhone,
+        phoneCodeHash: result.phoneCodeHash,
+        timeout: result.timeout || 300,
+        message: 'Verification code sent successfully to Telegram app/SMS',
+      };
+    } finally {
+      this.activeCodeRequests.delete(cleanPhone);
+    }
   }
 
   async verifyCode(tenantId: string, dto: VerifyCodeDto): Promise<any> {
@@ -102,10 +130,15 @@ export class AccountService {
     const apiId = parseInt(process.env.TELEGRAM_API_ID || '0', 10);
     const apiHash = process.env.TELEGRAM_API_HASH || '';
 
+    const phoneCodeHash = dto.phoneCodeHash || cached.phoneCodeHash;
+    if (!phoneCodeHash) {
+      throw new BadRequestException('Verification session expired or missing phone code hash. Please request a new code.');
+    }
+
     const result = await this.executeAuthAction('verify_code', {
       phone: dto.phone,
       code: dto.code,
-      phoneCodeHash: dto.phoneCodeHash,
+      phoneCodeHash,
       password: dto.password,
       tempSession: cached.tempSession,
       apiId,

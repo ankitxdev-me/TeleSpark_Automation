@@ -7,10 +7,10 @@ export class VerifyCodeDto {
   @IsNotEmpty()
   phone: string;
 
-  @ApiProperty({ description: 'Phone code hash returned by /accounts/send-code' })
+  @ApiPropertyOptional({ description: 'Phone code hash returned by /accounts/send-code (optional if cached)' })
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
-  phoneCodeHash: string;
+  phoneCodeHash?: string;
 
   @ApiProperty({ description: 'Verification code (OTP) received on Telegram/SMS', example: '12345' })
   @IsString()
